@@ -42,10 +42,12 @@ abi = json.loads(
 )["output"]["abi"]
 
 
-w3 = Web3(Web3.HTTPProvider("http://172.31.240.1:7545"))
-chain_id = 1337
+provider = os.getenv("HTTPProvider")
 
-my_adress = "0x8caAC78E60eEAaEE1afbcC7C3bCCDA760BBc8d20"
+w3 = Web3(Web3.HTTPProvider(provider))
+chain_id = 11155111
+
+my_adress = "0xCb5751E0bC332373597D5945e2E0E625FAfB1346"
 
 
 private_key = os.getenv("PRIVATE_KEY")
@@ -83,4 +85,33 @@ print("Waitin for transaction to finish....")
 
 tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-print(tx_receipt.contractAddress)
+# print(tx_receipt.contractAddress)
+
+# Working with deployed contracts
+
+simple_storage = w3.eth.contract(address=tx_receipt.contractAddress, abi=abi)
+
+# Call -> Simula un llamado para obtener un valor.
+print(simple_storage.functions.retrieve().call())
+
+# Transact
+
+store_transaction = simple_storage.functions.store(15).build_transaction(
+    {
+        "chainId": chain_id,
+        "gasPrice": w3.eth.gas_price,
+        "from": my_adress,
+        "nonce": nonce + 1,
+    }
+)
+
+signed_store_txn = w3.eth.account.sign_transaction(
+    store_transaction, private_key=private_key
+)
+
+print("Updating stored value")
+
+t_hash = w3.eth.send_raw_transaction(signed_store_txn.rawTransaction)
+tx_receipt = w3.eth.wait_for_transaction_receipt(t_hash)
+
+print(simple_storage.functions.retrieve().call())
